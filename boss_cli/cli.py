@@ -13,11 +13,28 @@ Usage:
 from __future__ import annotations
 
 import logging
+import sys
 
 import click
 
 from . import __version__
 from .commands import auth, personal, recruiter, search, social
+
+
+def _avoid_stdio_encoding_crashes() -> None:
+    """Let legacy Windows consoles replace unsupported glyphs instead of crashing."""
+    for stream_name in ("stdout", "stderr"):
+        stream = getattr(sys, stream_name, None)
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(errors="replace")
+        except (OSError, ValueError):
+            pass
+
+
+_avoid_stdio_encoding_crashes()
 
 
 @click.group()

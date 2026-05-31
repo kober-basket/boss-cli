@@ -38,6 +38,11 @@ def get_client(credential: Credential | None = None) -> BossClient:
     return BossClient(credential)
 
 
+def _is_stoken_only_partial_credential(credential: Credential) -> bool:
+    missing = getattr(credential, "missing_required_cookies", [])
+    return missing == ["__zp_stoken__"]
+
+
 def run_client_action(credential: Credential, action: Callable[[BossClient], T]) -> T:
     """Run an authenticated client action with auto-retry on session expiry.
 
@@ -54,7 +59,8 @@ def run_client_action(credential: Credential, action: Callable[[BossClient], T])
         if fresh:
             with get_client(fresh) as client:
                 return action(client)
-        clear_credential()
+        if not _is_stoken_only_partial_credential(credential):
+            clear_credential()
         raise
 
 

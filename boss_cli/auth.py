@@ -910,13 +910,14 @@ def _credential_cache_key(credential: Credential) -> str:
 def verify_credential_details(credential: Credential, *, force_refresh: bool = False) -> dict[str, Any]:
     """Verify credential health across the key authenticated flows."""
     if not credential.has_required_cookies:
-        missing = ", ".join(credential.missing_required_cookies)
-        return {
-            "authenticated": False,
-            "search_authenticated": False,
-            "recommend_authenticated": False,
-            "reason": f"缺少关键 Cookie: {missing}",
-        }
+        missing = credential.missing_required_cookies
+        if missing != ["__zp_stoken__"]:
+            return {
+                "authenticated": False,
+                "search_authenticated": False,
+                "recommend_authenticated": False,
+                "reason": f"缺少关键 Cookie: {', '.join(missing)}",
+            }
 
     from .client import BossClient
     from .exceptions import BossApiError, SessionExpiredError
@@ -933,15 +934,19 @@ def verify_credential_details(credential: Credential, *, force_refresh: bool = F
         "recommend_authenticated": False,
     }
     failures: list[str] = []
+    missing_stoken = credential.missing_required_cookies == ["__zp_stoken__"]
 
     with BossClient(credential, request_delay=0.2) as client:
-        try:
-            client.search_jobs(query="Python", city="100010000", page=1, page_size=1)
-            checks["search_authenticated"] = True
-        except SessionExpiredError as exc:
-            failures.append(f"search: {exc}")
-        except BossApiError as exc:
-            failures.append(f"search: 登录态校验失败: {exc}")
+        if missing_stoken:
+            failures.append("search: 缺少关键 Cookie: __zp_stoken__")
+        else:
+            try:
+                client.search_jobs(query="Python", city="100010000", page=1, page_size=1)
+                checks["search_authenticated"] = True
+            except SessionExpiredError as exc:
+                failures.append(f"search: {exc}")
+            except BossApiError as exc:
+                failures.append(f"search: 登录态校验失败: {exc}")
 
         try:
             client.get_recommend_jobs(page=1)
@@ -951,7 +956,7 @@ def verify_credential_details(credential: Credential, *, force_refresh: bool = F
         except BossApiError as exc:
             failures.append(f"recommend: 登录态校验失败: {exc}")
 
-    authenticated = checks["search_authenticated"]
+    authenticated = checks["search_authenticated"] or checks["recommend_authenticated"]
     result: dict[str, Any] = {
         "authenticated": authenticated,
         **checks,

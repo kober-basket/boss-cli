@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -28,6 +31,21 @@ class TestCliBasic:
         result = runner.invoke(cli, ["--help"])
         assert result.exit_code == 0
         assert "BOSS 直聘" in result.output
+
+    def test_help_does_not_crash_with_legacy_stdio_encoding(self):
+        env = os.environ.copy()
+        env["PYTHONIOENCODING"] = "gbk:strict"
+        result = subprocess.run(
+            [sys.executable, "-m", "boss_cli.cli", "--help"],
+            cwd=os.path.dirname(os.path.dirname(__file__)),
+            env=env,
+            capture_output=True,
+            timeout=10,
+        )
+        assert result.returncode == 0
+        output = result.stdout.decode("gbk", errors="replace")
+        assert "Usage:" in output
+        assert "login" in output
 
     def test_all_commands_registered(self):
         result = runner.invoke(cli, ["--help"])
@@ -610,6 +628,36 @@ class TestAuthHealthVerification:
 
         assert calls["count"] == 4
 
+    def test_verify_credential_accepts_recommend_when_only_stoken_missing(self, monkeypatch):
+        from boss_cli.auth import Credential, _AUTH_HEALTH_CACHE, verify_credential_details
+
+        class FakeClient:
+            def __init__(self, credential, request_delay=0.2):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def search_jobs(self, **kwargs):
+                raise AssertionError("search should be skipped when __zp_stoken__ is absent")
+
+            def get_recommend_jobs(self, page=1):
+                return {"jobList": [{"jobName": "Python"}]}
+
+        _AUTH_HEALTH_CACHE.clear()
+        monkeypatch.setattr("boss_cli.client.BossClient", FakeClient)
+
+        cred = Credential(cookies={"wt2": "1", "wbg": "2", "zp_at": "3", "bst": "4"})
+        result = verify_credential_details(cred, force_refresh=True)
+
+        assert result["authenticated"] is True
+        assert result["search_authenticated"] is False
+        assert result["recommend_authenticated"] is True
+        assert "__zp_stoken__" in result["reason"]
+
 
 # ── Index Cache ─────────────────────────────────────────────────────
 
@@ -891,6 +939,29 @@ class TestCommandFailures:
             assert data["ok"] is False
             assert data["error"]["code"] == "not_authenticated"
             clear_credential.assert_called_once()
+
+    def test_search_missing_stoken_does_not_clear_partial_qr_credential(self):
+        from boss_cli.auth import Credential
+        from boss_cli.exceptions import SessionExpiredError
+
+        mock_cred = Credential(cookies={"wt2": "1", "wbg": "2", "zp_at": "3", "bst": "4"})
+
+        with patch("boss_cli.commands._common.get_credential", return_value=mock_cred), \
+             patch("boss_cli.commands._common.BossClient") as MockClient, \
+             patch("boss_cli.auth.extract_browser_credential", return_value=(None, [])), \
+             patch("boss_cli.auth.clear_credential") as clear_credential:
+            mock_instance = MagicMock()
+            mock_instance.search_jobs.side_effect = SessionExpiredError()
+            mock_instance.__enter__ = MagicMock(return_value=mock_instance)
+            mock_instance.__exit__ = MagicMock(return_value=False)
+            MockClient.return_value = mock_instance
+
+            result = runner.invoke(cli, ["search", "golang", "--json"])
+            assert result.exit_code == 1
+            data = json.loads(result.output)
+            assert data["ok"] is False
+            assert data["error"]["code"] == "not_authenticated"
+            clear_credential.assert_not_called()
 
     def test_export_failure_exits_nonzero(self):
         from boss_cli.exceptions import BossApiError
