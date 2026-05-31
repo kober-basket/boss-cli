@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from unittest.mock import MagicMock, patch
 
@@ -118,6 +119,25 @@ class TestLoadFromEnv:
 
         with patch.dict(os.environ, {"BOSS_COOKIES": "no-equals-here; also-bad"}):
             assert load_from_env() is None
+
+
+class TestQrTerminalDisplay:
+    """Test QR login prefers terminal text output over image-file fallback."""
+
+    def test_fetch_and_display_qr_prefers_terminal_text_without_png(self, capsys):
+        from boss_cli.auth import _fetch_and_display_qr
+
+        class UnexpectedImageClient:
+            async def get(self, *args, **kwargs):
+                raise AssertionError("image QR endpoint should not be used when terminal QR rendering works")
+
+        with patch("boss_cli.auth._display_qr_in_terminal", return_value=True) as display_qr, \
+             patch("boss_cli.auth._open_image_file") as open_image:
+            asyncio.run(_fetch_and_display_qr(UnexpectedImageClient(), "bosszp-test-token"))
+
+        display_qr.assert_called_once_with("bosszp-test-token")
+        open_image.assert_not_called()
+        assert "boss_qr_" not in capsys.readouterr().out
 
 
 # ── Cookie jar extraction ───────────────────────────────────────────

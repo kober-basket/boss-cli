@@ -682,13 +682,19 @@ def _open_image_file(path: str) -> None:
 
 
 async def _fetch_and_display_qr(client: httpx.AsyncClient, qr_id: str) -> None:
-    """Fetch the QR code image from Boss API and display it.
+    """Display the QR code in the terminal, with image output only as fallback.
 
-    The server-generated QR image contains the correct scannable content
-    that the Boss Zhipin APP can recognise. We save it to a temp file and
-    open it with the system image viewer, plus render it in the terminal
-    as a fallback.
+    The terminal experience should be text-first: render the QR payload with
+    Unicode half-block characters so Windows Terminal, Git Bash, and embedded
+    PTYs all show the same scannable output. The server-generated image is
+    kept only for environments where terminal rendering unexpectedly fails.
     """
+    try:
+        if _display_qr_in_terminal(qr_id):
+            return
+    except Exception as exc:
+        logger.debug("Failed to render QR in terminal: %s", exc)
+
     # Fetch QR image from API
     resp = await client.get(QR_CODE_URL, params={"content": qr_id})
     resp.raise_for_status()
