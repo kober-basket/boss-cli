@@ -25,11 +25,14 @@ uv tool install --force dist/kober_boss_cli-*.whl
 | --- | --- |
 | `boss status --json` | Check current auth and per-flow health |
 | `boss login` | Extract browser cookies, fallback to QR login |
+| `boss login --cookie-source firefox` | Recommended Windows path when Chrome/Edge extraction or QR login cannot provide `__zp_stoken__` |
 | `boss login --cookie-source chrome` | Prefer a specific browser |
 | `boss login --qrcode` | QR-code login only |
 | `boss logout` | Delete saved credentials and pause browser auto-login |
 
 Supported browser sources include Chrome, Firefox, Edge, Brave, Arc, Chromium, Opera, Vivaldi, Safari, and LibreWolf when available through `browser-cookie3`.
+
+Windows guidance: Chrome/Edge cookie extraction commonly fails because of DPAPI/App-Bound Encryption, and pure QR login can miss `__zp_stoken__`. If search returns `not_authenticated` or `环境异常`, ask the user to install Firefox from <https://www.mozilla.org/firefox/new/>, log into zhipin.com in Firefox, close Firefox, then run `boss logout && boss login --cookie-source firefox`.
 
 ## Job-Seeker Commands
 
@@ -129,5 +132,6 @@ boss recruiter resume <encryptGeekId> --job <encryptJobId>
 | `not_authenticated` envelope error | Re-login before retrying protected commands |
 | Rate limited or code 9 | Wait; do not parallelize requests |
 | Search has no results | Relax filters or confirm city with `boss cities` |
-| Browser cookie extraction fails | Try `boss login --qrcode` |
+| Browser cookie extraction fails on Windows Chrome/Edge | Use Firefox: log into zhipin.com, close Firefox, then run `boss login --cookie-source firefox` |
+| QR login succeeds but search fails with `__zp_stoken__` | Use Firefox cookie extraction with `boss login --cookie-source firefox` |
 | `PermissionError` on startup | Run from a readable directory or reinstall the patched package |

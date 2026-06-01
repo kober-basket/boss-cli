@@ -211,6 +211,8 @@ boss-cli supports multiple authentication methods:
 
 `boss login` auto-extracts browser cookies first, falls back to QR login. Use `--cookie-source chrome` to specify a browser, or `--qrcode` to skip browser detection. The command now verifies the saved credential against a real authenticated API before reporting success.
 
+On Windows, Chrome/Edge cookie extraction may fail because of DPAPI/App-Bound Encryption, and QR login may miss `__zp_stoken__` required by search. If that happens, log into zhipin.com in Firefox, close Firefox, then run `boss logout && boss login --cookie-source firefox`.
+
 `boss logout` removes the saved credential and prevents later commands from silently re-extracting browser cookies. Run `boss login` again to re-enable browser cookie extraction; an explicit `BOSS_COOKIES` value still works.
 
 `boss recommend` follows the live web app's current recommendation data source and request context, which improves compatibility when the legacy recommendation endpoint is rejected.

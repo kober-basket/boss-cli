@@ -40,11 +40,20 @@ Interpret `authenticated: true` as ready. If false or missing:
 
 ```bash
 boss login
+boss login --cookie-source firefox
 boss login --cookie-source chrome
 boss login --qrcode
 ```
 
 Use `boss login` when the user is already logged into zhipin.com in a browser. It extracts cookies from supported browsers and validates them. Use `--qrcode` when browser cookie extraction is unavailable.
+
+On Windows, Chrome and Edge cookie extraction often fails because DPAPI/App-Bound Encryption blocks CLI access, and pure QR login usually cannot obtain `__zp_stoken__`, which `boss search` needs. Prefer this Windows path:
+
+1. Ask the user to install Firefox if it is not installed: <https://www.mozilla.org/firefox/new/>.
+2. Ask the user to log into zhipin.com in Firefox and confirm the web page is authenticated.
+3. Ask the user to close Firefox so the cookie database is not locked.
+4. Run `boss logout && boss login --cookie-source firefox`.
+5. Verify with `boss status --json` and then retry the requested command.
 
 `boss logout` deletes saved credentials and writes a local logout marker so later commands do not silently re-extract browser cookies. Run `boss login` again to re-enable browser extraction. An explicit `BOSS_COOKIES` environment variable still acts as a manual credential source.
 
@@ -90,5 +99,5 @@ For recruiter-side work:
 
 - Do not parallelize BOSS API requests; the CLI includes jitter, cooldown, and retry behavior to reduce account risk.
 - Prefer `--dry-run` for batch operations, then ask the user before sending greetings or viewing many candidates.
-- If `环境异常`, `__zp_stoken__`, or `not_authenticated` appears, run `boss logout && boss login` unless the user asks to stay logged out.
+- If `环境异常`, `__zp_stoken__`, or `not_authenticated` appears on Windows after Chrome/Edge extraction or QR login, switch to Firefox and run `boss logout && boss login --cookie-source firefox`.
 - If `boss` crashes before showing help with `PermissionError: Operation not permitted`, ask the user to run from a readable directory or reinstall a build containing the safe cwd startup patch.
