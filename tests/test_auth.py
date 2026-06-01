@@ -121,6 +121,60 @@ class TestLoadFromEnv:
             assert load_from_env() is None
 
 
+# ── Logout suppression ──────────────────────────────────────────────
+
+
+class TestLogoutSuppression:
+    """Test explicit logout does not immediately rehydrate from browser cookies."""
+
+    def test_clear_credential_can_mark_logged_out(self, tmp_path):
+        from boss_cli import auth
+
+        credential_file = tmp_path / "credential.json"
+        logout_marker_file = tmp_path / "logged_out"
+        credential_file.write_text("{}", encoding="utf-8")
+
+        with patch.object(auth, "CONFIG_DIR", tmp_path), \
+             patch.object(auth, "CREDENTIAL_FILE", credential_file), \
+             patch.object(auth, "LOGOUT_MARKER_FILE", logout_marker_file, create=True):
+            auth.clear_credential(mark_logged_out=True)
+
+        assert not credential_file.exists()
+        assert logout_marker_file.exists()
+
+    def test_save_credential_clears_logout_marker(self, tmp_path):
+        from boss_cli import auth
+
+        credential_file = tmp_path / "credential.json"
+        logout_marker_file = tmp_path / "logged_out"
+        logout_marker_file.write_text("1", encoding="utf-8")
+
+        with patch.object(auth, "CONFIG_DIR", tmp_path), \
+             patch.object(auth, "CREDENTIAL_FILE", credential_file), \
+             patch.object(auth, "LOGOUT_MARKER_FILE", logout_marker_file, create=True):
+            auth.save_credential(auth.Credential({"wt2": "abc"}))
+
+        assert credential_file.exists()
+        assert not logout_marker_file.exists()
+
+    def test_get_credential_does_not_extract_browser_after_logout(self, tmp_path):
+        from boss_cli import auth
+
+        browser_credential = auth.Credential({"wt2": "browser"})
+        credential_file = tmp_path / "credential.json"
+        logout_marker_file = tmp_path / "logged_out"
+        logout_marker_file.write_text("1", encoding="utf-8")
+
+        with patch.object(auth, "CONFIG_DIR", tmp_path), \
+             patch.object(auth, "CREDENTIAL_FILE", credential_file), \
+             patch.object(auth, "LOGOUT_MARKER_FILE", logout_marker_file, create=True), \
+             patch.dict(os.environ, {}, clear=True), \
+             patch("boss_cli.auth.extract_browser_credential", return_value=(browser_credential, [])) as extract:
+            assert auth.get_credential() is None
+
+        extract.assert_not_called()
+
+
 class TestQrTerminalDisplay:
     """Test QR login prefers terminal text output over image-file fallback."""
 

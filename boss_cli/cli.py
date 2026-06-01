@@ -13,11 +13,35 @@ Usage:
 from __future__ import annotations
 
 import logging
+import os
 import sys
 
 import click
 
 from . import __version__
+
+
+def _avoid_unreadable_cwd_import_crashes() -> None:
+    """Keep third-party imports working when macOS denies cwd access."""
+    original_getcwd = os.getcwd
+
+    def safe_getcwd() -> str:
+        try:
+            return original_getcwd()
+        except OSError:
+            home = os.path.expanduser("~")
+            if home and home != "~":
+                return home
+            return os.environ.get("HOME") or os.sep
+
+    try:
+        original_getcwd()
+    except OSError:
+        os.getcwd = safe_getcwd
+
+
+_avoid_unreadable_cwd_import_crashes()
+
 from .commands import auth, personal, recruiter, search, social
 
 

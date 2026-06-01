@@ -1,8 +1,7 @@
 # boss-cli
 
-[![PyPI version](https://img.shields.io/pypi/v/kabi-boss-cli.svg)](https://pypi.org/project/kabi-boss-cli/)
-[![CI](https://github.com/jackwener/boss-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/jackwener/boss-cli/actions/workflows/ci.yml)
-[![Python](https://img.shields.io/badge/python-%3E%3D3.10-blue.svg)](https://pypi.org/project/kabi-boss-cli/)
+[![PyPI version](https://img.shields.io/pypi/v/kober-boss-cli.svg)](https://pypi.org/project/kober-boss-cli/)
+[![Python](https://img.shields.io/badge/python-%3E%3D3.10-blue.svg)](https://pypi.org/project/kober-boss-cli/)
 
 A CLI for BOSS 直聘 — search jobs, view recommendations, manage applications, chat with recruiters, **and manage candidates as a recruiter** via reverse-engineered API 🤝
 
@@ -37,26 +36,26 @@ A CLI for BOSS 直聘 — search jobs, view recommendations, manage applications
 
 ```bash
 # Recommended: uv tool (fast, isolated)
-uv tool install kabi-boss-cli
+uv tool install kober-boss-cli
 
 # Or: pipx
-pipx install kabi-boss-cli
+pipx install kober-boss-cli
 
 # Optional: YAML output support
-pip install kabi-boss-cli[yaml]
+pip install kober-boss-cli[yaml]
 ```
 
 Upgrade to the latest version:
 
 ```bash
-uv tool upgrade kabi-boss-cli
-# Or: pipx upgrade kabi-boss-cli
+uv tool upgrade kober-boss-cli
+# Or: pipx upgrade kober-boss-cli
 ```
 
 From source:
 
 ```bash
-git clone git@github.com:jackwener/boss-cli.git
+git clone git@github.com:kober/boss-cli.git
 cd boss-cli
 uv sync
 ```
@@ -69,7 +68,7 @@ boss login                             # Auto-detect browser cookies, fallback t
 boss login --cookie-source chrome      # Extract from specific browser
 boss login --qrcode                    # QR code login only
 boss status                            # Check login status (validates real search session, shows cookie names)
-boss logout                            # Clear saved cookies
+boss logout                            # Clear saved cookies and pause browser auto-login
 
 # ─── Search ───────────────────────────────────────
 boss search "golang"                   # Search jobs
@@ -187,7 +186,7 @@ boss recruiter export --format json -o candidates.json
 
 ## Structured Output
 
-All commands with `--json` / `--yaml` use a unified output envelope (see [SCHEMA.md](./SCHEMA.md)):
+Most commands with `--json` / `--yaml` use a unified output envelope (see [skills/boss-cli/references/schema.md](./skills/boss-cli/references/schema.md)):
 
 ```json
 {
@@ -197,6 +196,7 @@ All commands with `--json` / `--yaml` use a unified output envelope (see [SCHEMA
 }
 ```
 
+- `boss status --json` is the exception: it returns a direct auth status object for backward compatibility.
 - **Non-TTY stdout** → auto YAML (agent-friendly)
 - **`--json`** → explicit JSON
 - **Rich output** → stderr (won't pollute pipes: `boss search X --json | jq .data`)
@@ -210,6 +210,8 @@ boss-cli supports multiple authentication methods:
 3. **QR code login** — terminal QR output using Unicode half-blocks, scan with Boss 直聘 APP
 
 `boss login` auto-extracts browser cookies first, falls back to QR login. Use `--cookie-source chrome` to specify a browser, or `--qrcode` to skip browser detection. The command now verifies the saved credential against a real authenticated API before reporting success.
+
+`boss logout` removes the saved credential and prevents later commands from silently re-extracting browser cookies. Run `boss login` again to re-enable browser cookie extraction; an explicit `BOSS_COOKIES` value still works.
 
 `boss recommend` follows the live web app's current recommendation data source and request context, which improves compatibility when the legacy recommendation endpoint is rejected.
 
@@ -232,12 +234,12 @@ Saved cookies auto-refresh from browser after **7 days**. If browser refresh fai
 
 ## Use as AI Agent Skill
 
-boss-cli ships with a [`SKILL.md`](./SKILL.md) that teaches AI agents how to use it.
+boss-cli ships with a reusable skill at [`skills/boss-cli/SKILL.md`](./skills/boss-cli/SKILL.md). The structured output reference lives at [`skills/boss-cli/references/schema.md`](./skills/boss-cli/references/schema.md).
 
 ### [Skills CLI](https://github.com/vercel-labs/skills) (Recommended)
 
 ```bash
-npx skills add jackwener/boss-cli
+npx skills add kober/boss-cli/skills/boss-cli
 ```
 
 | Flag | Description |
@@ -250,7 +252,8 @@ npx skills add jackwener/boss-cli
 
 ```bash
 mkdir -p .agents/skills
-git clone git@github.com:jackwener/boss-cli.git .agents/skills/boss-cli
+git clone git@github.com:kober/boss-cli.git /tmp/boss-cli
+cp -R /tmp/boss-cli/skills/boss-cli .agents/skills/boss-cli
 ```
 
 ### ~~OpenClaw / ClawHub~~ (Deprecated)
@@ -275,6 +278,13 @@ boss_cli/
     ├── personal.py       # applied, interviews
     ├── social.py         # chat, greet (--json), batch-greet (1.5s delay)
     └── recruiter.py      # recruiter-jobs, inbox, geek, chat, labels, export
+
+skills/
+└── boss-cli/
+    ├── SKILL.md          # Agent instructions for using the installed boss CLI
+    └── references/
+        ├── command-reference.md
+        └── schema.md
 ```
 
 ## Development
@@ -336,7 +346,7 @@ Check your city filter. Some keywords are city-specific. Use `boss cities` to se
 boss login                             # 自动提取浏览器 Cookie，失败则二维码
 boss login --cookie-source chrome      # 指定浏览器
 boss status                            # 检查登录状态
-boss logout                            # 清除 Cookie
+boss logout                            # 清除 Cookie 并暂停浏览器自动登录
 
 # 搜索 & 详情
 boss search "golang" --city 杭州       # 按城市搜索

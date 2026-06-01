@@ -47,6 +47,31 @@ class TestCliBasic:
         assert "Usage:" in output
         assert "login" in output
 
+    def test_cli_import_does_not_crash_when_cwd_is_unreadable(self, tmp_path):
+        sitecustomize = tmp_path / "sitecustomize.py"
+        sitecustomize.write_text(
+            "import os\n"
+            "def blocked_getcwd():\n"
+            "    raise PermissionError(1, 'Operation not permitted')\n"
+            "os.getcwd = blocked_getcwd\n",
+            encoding="utf-8",
+        )
+        env = os.environ.copy()
+        repo_root = os.path.dirname(os.path.dirname(__file__))
+        env["PYTHONPATH"] = f"{tmp_path}{os.pathsep}{repo_root}{os.pathsep}{env.get('PYTHONPATH', '')}"
+
+        result = subprocess.run(
+            [sys.executable, "-c", "import boss_cli.cli; print('ok')"],
+            cwd=repo_root,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert "ok" in result.stdout
+
     def test_all_commands_registered(self):
         result = runner.invoke(cli, ["--help"])
         expected = [
@@ -202,10 +227,11 @@ class TestAuthCommands:
             assert "未登录" in result.output
 
     def test_logout(self):
-        with patch("boss_cli.auth.clear_credential"):
+        with patch("boss_cli.auth.clear_credential") as clear_credential:
             result = runner.invoke(cli, ["logout"])
             assert result.exit_code == 0
             assert "已退出" in result.output
+            clear_credential.assert_called_once_with(mark_logged_out=True)
 
 
 # ── Personal commands (mocked) ──────────────────────────────────────

@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 # Credential TTL: warn and attempt refresh after 7 days
 CREDENTIAL_TTL_DAYS = 7
 _CREDENTIAL_TTL_SECONDS = CREDENTIAL_TTL_DAYS * 86400
+LOGOUT_MARKER_FILE = CONFIG_DIR / "logged_out"
 
 # QR poll config
 POLL_TIMEOUT_S = 240  # 4 minutes
@@ -82,9 +83,25 @@ class Credential:
 
 # ── Credential persistence ──────────────────────────────────────────
 
+def _clear_logout_marker() -> None:
+    if LOGOUT_MARKER_FILE.exists():
+        LOGOUT_MARKER_FILE.unlink()
+
+
+def _mark_logged_out() -> None:
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    LOGOUT_MARKER_FILE.write_text(str(time.time()), encoding="utf-8")
+    LOGOUT_MARKER_FILE.chmod(0o600)
+
+
+def _is_logged_out() -> bool:
+    return LOGOUT_MARKER_FILE.exists()
+
+
 def save_credential(credential: Credential) -> None:
     """Save credential to config file."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    _clear_logout_marker()
     CREDENTIAL_FILE.write_text(json.dumps(credential.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8")
     CREDENTIAL_FILE.chmod(0o600)
     logger.info("Credential saved to %s", CREDENTIAL_FILE)
@@ -138,12 +155,14 @@ def load_credential() -> Credential | None:
     return None
 
 
-def clear_credential() -> None:
+def clear_credential(*, mark_logged_out: bool = False) -> None:
     """Remove saved credential file."""
     if CREDENTIAL_FILE.exists():
         CREDENTIAL_FILE.unlink()
         logger.info("Credential removed: %s", CREDENTIAL_FILE)
     _AUTH_HEALTH_CACHE.clear()
+    if mark_logged_out:
+        _mark_logged_out()
 
 
 # ── Keychain / environment diagnostics ──────────────────────────────
@@ -881,7 +900,7 @@ def get_credential() -> Credential | None:
 
     1. Saved credential file
     2. Environment variable (BOSS_COOKIES)
-    3. Browser cookie extraction
+    3. Browser cookie extraction, unless the user explicitly logged out
     """
     cred = load_credential()
     if cred:
@@ -893,6 +912,10 @@ def get_credential() -> Credential | None:
         logger.info("Loaded credential from BOSS_COOKIES env")
         save_credential(cred)
         return cred
+
+    if _is_logged_out():
+        logger.info("Explicit logout marker present; skipping browser credential extraction")
+        return None
 
     cred, _ = extract_browser_credential()
     if cred:

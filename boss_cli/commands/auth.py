@@ -67,7 +67,7 @@ def login(qrcode: bool, cookie_source: str | None) -> None:
             except BrowserLoginUnavailable as e:
                 console.print(
                     f"[yellow]⚠️  浏览器辅助登录不可用: {e}\n"
-                    "   安装方式: pip install 'kabi-boss-cli[browser]' && python -m camoufox fetch\n"
+                    "   安装方式: pip install 'kober-boss-cli[browser]' && python -m camoufox fetch\n"
                     "   回退到 HTTP 扫码登录...[/yellow]\n"
                 )
         except ImportError:
@@ -125,7 +125,7 @@ def login(qrcode: bool, cookie_source: str | None) -> None:
 def logout() -> None:
     """清除已保存的登录凭证"""
     from ..auth import clear_credential
-    clear_credential()
+    clear_credential(mark_logged_out=True)
     console.print("[green]✅ 已退出登录[/green]")
 
 

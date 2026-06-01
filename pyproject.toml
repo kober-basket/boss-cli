@@ -1,11 +1,11 @@
 [project]
-name = "kabi-boss-cli"
-version = "0.3.6"
+name = "kober-boss-cli"
+version = "0.3.7"
 description = "A CLI for Boss Zhipin (BOSS直聘) — search jobs, chat with bosses from the terminal"
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
-authors = [{ name = "jackwener", email = "jakevingoo@gmail.com" }]
+authors = [{ name = "kober" }]
 keywords = ["boss", "zhipin", "cli", "terminal", "job", "recruitment"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -35,9 +35,9 @@ browser = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/jackwener/boss-cli"
-Repository = "https://github.com/jackwener/boss-cli"
-Issues = "https://github.com/jackwener/boss-cli/issues"
+Homepage = "https://pypi.org/project/kober-boss-cli/"
+Repository = "https://github.com/kober/boss-cli"
+Issues = "https://github.com/kober/boss-cli/issues"
 
 [project.scripts]
 boss = "boss_cli.cli:cli"

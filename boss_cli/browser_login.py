@@ -41,7 +41,7 @@ def _ensure_camoufox_ready() -> None:
         import camoufox  # noqa: F401
     except ImportError as exc:
         raise BrowserLoginUnavailable(
-            "camoufox 未安装。安装: pip install 'kabi-boss-cli[browser]'"
+            "camoufox 未安装。安装: pip install 'kober-boss-cli[browser]'"
         ) from exc
 
     try:
